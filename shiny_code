@@ -1,0 +1,275 @@
+library(shiny)
+library(leaflet)
+library(dplyr)
+
+
+# Define server to analyze the campus information of SUNY
+shinyServer(function(input, output) {
+  
+  # Create an output variable for problem description
+  output$text <- renderText({
+    
+    "The analysis based on the dataset 'State University of New York (SUNY) Campus Locations with Websites, Enrollment and Select Program Offerings',
+    which contains information like basic information of each campus, enrollment status, and programs offer by each campus.
+    This analysis will focus on provide information to users who are selecting desired campus and help them to make a decision."
+    
+  })
+  
+  # Create a descriptive table for different Institution Type
+  output$table1 <- renderPrint({
+    
+    # Connect to the sidebar of file input
+    inFile <- input$file
+    
+    if(is.null(inFile))
+      return("Please Upload A File For Analysis")
+    
+    # Read input file
+    mydata <- read.csv(inFile$datapath)
+    
+    # Filter the data for different city and different Institution level
+    target1 <- c(input$city)
+    target2 <- c(input$level)
+    
+    if(input$city == "ALL"){
+      type_df<- filter(mydata, Institution.Level %in% target2)
+      }
+    else{
+      type_df <- filter(mydata, City %in% target1 & Institution.Level %in% target2) 
+    }
+    
+    # Create a table for Institution Type
+    table(type_df$Institution.Type)
+    
+  })
+  
+  # Create a descriptive table for programs provided by each campus
+  output$table2 <- renderPrint({
+    
+    # Connect to the sidebar of file input
+    inFile <- input$file
+    
+    if(is.null(inFile))
+      return("Please Upload A File For Analysis")
+    
+    # Read input file
+    mydata <- read.csv(inFile$datapath)
+    
+    # Filter the data for different city and different Institution level
+    target1 <- c(input$city)
+    target2 <- c(input$level)
+    
+    if(input$city == "ALL"){
+      program_df<- filter(mydata, Institution.Level %in% target2)
+    }
+    else{
+      program_df <- filter(mydata, City %in% target1 & Institution.Level %in% target2) 
+    }
+    
+    # Create a table for program information
+    display <- program_df[,c(4,16:20)]
+    return(display)
+    
+  })
+  
+  
+  # Create a map output variable
+  output$map <- renderLeaflet({
+    
+    # Connect to the sidebar of file input
+    inFile <- input$file
+    
+    if(is.null(inFile))
+      return(NULL)
+    
+    # Read input file
+    mydata <- read.csv(inFile$datapath)
+   
+    # Filter the data for different city and different Institution level
+    target1 <- c(input$city)
+    target2 <- c(input$level)
+    
+    if(input$city == "ALL"){
+      map_df<- filter(mydata, Institution.Level %in% target2)
+    }
+    else{
+      map_df <- filter(mydata, City %in% target1 & Institution.Level %in% target2) 
+    }
+    
+    # Create colors with a categorical color function
+    color <- colorFactor(rainbow(4), c("Community Colleges","Doctoral Degree Granting Institutions","Technology Colleges","Comprehensive Colleges"))
+    
+    # Create the leaflet function for data
+    leaflet(map_df) %>%
+      
+      # Set the default view
+      setView(lng = -75.6, lat = 42.9, zoom = 7) %>%
+      
+      # Provide tiles
+      addTiles() %>%
+      
+      # Add circles
+      addCircleMarkers(
+        lng= map_df$Longitude1,
+        lat= map_df$Latitude1,
+        color = color(c("Community Colleges","Doctoral Degree Granting Institutions","Technology Colleges","Comprehensive Colleges")),
+        popup = map_df$Long.Campus.Name
+      ) %>%
+      
+      # Add legends for different types of Institution Type
+      addLegend(
+        "bottomleft",
+        pal=color,
+        values=c("Community Colleges","Doctoral Degree Granting Institutions","Technology Colleges","Comprehensive Colleges"),
+        title="Type of Institution") 
+      
+  })
+  
+  # Create a barplot of Undergraduate Enrollment Status
+  output$enroll1 <- renderPlot({
+    
+    # Connect to the sidebar of file input
+    inFile <- input$file
+    
+    if(is.null(inFile))
+      return("Please Upload A File For Analysis")
+    
+    # Read input file
+    mydata <- read.csv(inFile$datapath)
+    
+    # Filter the data for different city and different Institution level
+    target1 <- c(input$city)
+    target2 <- c(input$level)
+    
+    if(input$city == "ALL"){
+      enroll1_df<- filter(mydata, Institution.Level %in% target2)
+    }
+    else{
+      enroll1_df <- filter(mydata, City %in% target1 & Institution.Level %in% target2) 
+    }
+    
+    # Create a barplot
+    barplot(enroll1_df$Undergraduate.Enrollment, 
+            main=c(input$city,"Undergraduate Enrollment Status"),
+            names = enroll1_df$Campus.Name,
+            ylab="Number of Enrollment",
+            xlab="Campus")
+
+  })   
+  # Create a barplot of Graduate Enrollment Status
+  output$enroll2 <- renderPlot({
+    
+    # Connect to the sidebar of file input
+    inFile <- input$file
+    
+    if(is.null(inFile))
+      return("Please Upload A File For Analysis")
+    
+    # Read input file
+    mydata <- read.csv(inFile$datapath)
+    
+    # Filter the data for different city and different Institution level
+    target1 <- c(input$city)
+    target2 <- c(input$level)
+    
+    if(input$city == "ALL"){
+      enroll2_df<- filter(mydata, Institution.Level %in% target2)
+    }
+    else{
+      enroll2_df <- filter(mydata, City %in% target1 & Institution.Level %in% target2) 
+    }
+    
+    # Create a barplot
+    barplot(enroll2_df$Graduate.Enrollment, 
+            main=c(input$city,"Graduate Enrollment Status"),
+            names = enroll2_df$Campus.Name,
+            ylab="Number of Enrollment",
+            xlab="Campus")
+    
+  })  
+  
+})
+
+# Define UI for application that analyzes the campus information of SUNY
+shinyUI(fluidPage(
+  
+  # Change the theme to United
+  theme = shinytheme("united"),
+  
+  # Application title
+  titlePanel("Campus Information of SUNY"),
+  
+  # Three sidebars for uploading files, selecting city and Institution Level
+  sidebarLayout(
+    sidebarPanel(
+      
+      # Create a file input
+      fileInput("file","Choose A CSV File Please",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      
+      # Create a selectbox input for city
+      selectInput("city", "City", choices = c("ALL","ALBANY","ALFRED","AUBURN","BATAVIA","BINGHAMTON","BROCKPORT","BROOKLYN",
+                                              "BUFFALO","CANANDAIGUA","CANTON","COBLESKILL","CORNING","CORTLAND","DELHI",
+                                              "DRYDEN","FARMINGDALE","FREDONIA","GARDEN CITY","GENESEO","HERKIMER","HUDSON",
+                                              "ITHACA","JAMESTOWN","JOHNSTOWN","LOCH SHELDRAKE","MIDDLETOWN","MORRISVILLE",
+                                              "NEW PALTZ","NEW YORK","OLD WESTBURY","ONEONTA","OSWEGO","PLATTSBURGH",
+                                              "POTSDAM","POUGHKEEPSIE","PURCHASE","QUEENSBURY","ROCHESTER","SANBORN",
+                                              "SARANAC LAKE","SARATOGA SPRINGS","SCHENECTADY","SELDEN","STONE RIDGE","STONY BROOK",
+                                              "SUFFERN","SYRACUSE","THROGGS NECK","TROY","UTICA","VALHALLA","WATERTOWN")
+      ),
+      
+      helpText("Please select a city"),
+      
+      hr(),
+      hr(),
+      
+      # Create a multiple checkbox input for Institution level
+      checkboxGroupInput("level",
+                         "Insititution level:",
+                         choices = c("4-year","2-year","Graduate")
+      ),
+      
+      hr(),
+      helpText("Please Choose An Insititution Level"),
+      helpText("You Can Choose More Than One")
+    ),
+    
+    # Make the sidebar on the left of the webpage
+    position = "left",
+    fluid = TRUE,
+    
+    
+    
+    # Create three tabs
+    mainPanel(
+      hr(),
+      tabsetPanel(type="tabs",
+                  
+                  #Add a tab for problem description
+                  tabPanel("Problem Description", textOutput("text")),
+                  
+                  #Tab for the Leaflet Map
+                  tabPanel("Map", leafletOutput("map", height=630)),
+                  
+              
+                  #Add a tab for campus information
+                  tabPanel("Campus Information",
+                           
+                           #Add two subtabs
+                           tabsetPanel(
+                             tabPanel("School Type",verbatimTextOutput("table1")),
+                             tabPanel("Program Information",verbatimTextOutput("table2"))
+                             
+                           )
+                  ),
+                  
+                 
+                  #Tab for enrollment status analysis
+                  tabPanel("Enrollment Status",plotOutput("enroll1"),plotOutput(("enroll2")))
+      )
+    )
+  )
+))
